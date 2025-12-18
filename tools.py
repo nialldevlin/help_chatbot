@@ -4,76 +4,18 @@ import re
 import shutil
 import subprocess
 import yaml
-import random
-from pathlib import Path
 from typing import List, Tuple
 
-from rag import OllamaEmbeddingProvider, Retriever, SimpleVectorStore, Chunk, get_rag_index_path
+from rag import OllamaEmbeddingProvider, Retriever, SimpleVectorStore
 
-
-def _truncate_readme(readme_content: str, max_lines: int = 50) -> str:
-    """Truncate README to first max_lines or until first H2 heading."""
-    if not readme_content:
-        return ""
-
-    lines = readme_content.split('\n')
-    truncated = []
-
-    for i, line in enumerate(lines):
-        if i >= max_lines:
-            break
-        # Stop at first H2 heading (## Something) after initial title
-        if i > 0 and line.strip().startswith('## '):
-            break
-        truncated.append(line)
-
-    result = '\n'.join(truncated)
-    if len(lines) > len(truncated):
-        result += f"\n\n... (README truncated, {len(lines) - len(truncated)} more lines)"
-
-    return result
-
-
-def _limit_search_results(search_output: str, max_results: int) -> str:
-    """Limit ripgrep search results to top N file matches."""
-    if not search_output or "No direct matches" in search_output:
-        return search_output
-
-    # Split by file (ripgrep separates files with blank lines typically)
-    # This is a simple approach - just truncate the output
-    lines = search_output.split('\n')
-    if len(lines) <= max_results * 5:  # Rough estimate: 5 lines per match
-        return search_output
-
-    # Keep first max_results worth of content
-    truncated = lines[:max_results * 5]
-    return '\n'.join(truncated) + f"\n\n... (showing top {max_results} matches)"
-
-
-def search_codebase_tool(query: str, focus_areas: List[str] = None, workspace_root: str = None, question_type: str = None) -> str:
+def search_codebase_tool(query: str, focus_areas: List[str] = None, workspace_root: str = None) -> str:
     """
     Searches the codebase for relevant files and snippets based on a query.
     Searches the user's current working directory, not the script location.
     For a general query like "what is this codebase", it will provide a file listing and README content.
-
-    Args:
-        query: The search query string
-        focus_areas: Optional list of directories to search within
-        workspace_root: Optional workspace root path (defaults to cwd)
-        question_type: Optional type hint to filter results - one of:
-            - "overview": Include truncated README, limited search snippets (top 3)
-            - "lookup": Skip README, limited search snippets (top 5)
-            - "implementation": Skip README, limited search snippets (top 3)
-            - "configuration": Skip README, focus on config files
-            - None: Include all sections (default behavior)
     """
     cwd = workspace_root or os.getcwd()
-
-    # For configuration questions, default focus_areas if not provided
-    if question_type == "configuration" and not focus_areas:
-        focus_areas = ["config", "docs"]
-
-    print(f"DEBUG: Searching {cwd} for query: '{query}' with focus areas: {focus_areas or 'all'} (question_type: {question_type})")
+    print(f"DEBUG: Searching {cwd} for query: '{query}' with focus areas: {focus_areas or 'all'}")
 
     try:
         # List files and directories from cwd, ignoring .git, venv, and __pycache__
@@ -138,43 +80,15 @@ def search_codebase_tool(query: str, focus_areas: List[str] = None, workspace_ro
         if not search_snippets:
             search_snippets = "No direct matches found for the query."
 
-        # Apply question_type-specific filtering
-        filtered_readme = readme_content
-        filtered_search_snippets = search_snippets
-
-        if question_type == "overview":
-            # Truncate README to 50 lines or first H2, limit search to top 3
-            filtered_readme = _truncate_readme(readme_content, max_lines=50)
-            filtered_search_snippets = _limit_search_results(search_snippets, max_results=3)
-        elif question_type == "lookup":
-            # Skip README, limit search to top 5
-            filtered_readme = None
-            filtered_search_snippets = _limit_search_results(search_snippets, max_results=5)
-        elif question_type == "implementation":
-            # Skip README, limit search to top 3
-            filtered_readme = None
-            filtered_search_snippets = _limit_search_results(search_snippets, max_results=3)
-        elif question_type == "configuration":
-            # Skip README, limit search to top 3
-            filtered_readme = None
-            filtered_search_snippets = _limit_search_results(search_snippets, max_results=3)
-        # else: question_type is None, keep all sections (current behavior)
-
-        # Build sections conditionally based on filtered results
         sections = [
             f"## Query\n{query}",
-            "## Search Snippets\n" + (filtered_search_snippets or "No direct matches found for the query."),
+            "## Search Snippets\n" + (search_snippets or "No direct matches found for the query."),
             "## RAG Snippets\n" + (rag_snippets or "RAG disabled or no matches found."),
             "## RAG Status\n" + (rag_error or "RAG retrieval attempted."),
             "## Direct File Snippets\n" + (direct_file_snippets or "No direct file references found in the query."),
+            "## README\n" + (readme_content or "No README file found."),
+            "## Project File Listing (partial)\n" + (file_list or "No files were listed."),
         ]
-
-        # Add README section only if not filtered out
-        if filtered_readme is not None:
-            sections.append("## README\n" + (filtered_readme or "No README file found."))
-
-        sections.append("## Project File Listing (partial)\n" + (file_list or "No files were listed."))
-
         return "\n\n".join(sections)
     except Exception as e:
         return f"Error while analyzing codebase: {e}"
@@ -293,76 +207,3 @@ def format_response_tool(original_question: str, analysis: str, code_snippets: s
     response += f"## Agent Analysis:\n{analysis}\n\n"
     response += f"## Relevant Code/Information:\n{code_snippets}\n\n"
     return response
-
-
-def ensure_rag_index_built(workspace_root: str, rag_meta: dict) -> bool:
-    """
-    Ensure RAG index exists and is up-to-date.
-    Called on app startup before first query.
-    Returns True if RAG is ready, False if skipped.
-    """
-    if not rag_meta.get("enabled"):
-        return False
-
-    # Check file count
-    file_count = len(list(Path(workspace_root).rglob("*.py")))
-    if file_count > 1000:
-        print(f"i  Codebase is large ({file_count} files). Skipping RAG indexing.")
-        print(f"   RAG provides semantic search but isn't critical for basic queries.")
-        return False
-
-    store_path = get_rag_index_path(workspace_root)
-    embedder = OllamaEmbeddingProvider()
-    store = SimpleVectorStore(store_path)
-    retriever = Retriever(workspace_root, embedder, store)
-
-    # Check if index exists and is valid
-    existing_chunks = store.load()
-    if existing_chunks:
-        # Index exists - check if it's stale
-        if _is_index_stale(workspace_root, existing_chunks):
-            print("(updating RAG index (files changed)...")
-            _update_rag_index_incremental(retriever, existing_chunks)
-        # else: index is current, skip rebuild
-    else:
-        # No index - build it
-        print("Building RAG index (first run)...")
-        print("   This may take a minute for large codebases.")
-        try:
-            chunks = retriever.build_index()
-            print(f"Indexed {len(chunks)} chunks from {file_count} files")
-        except Exception as e:
-            print(f"RAG indexing failed: {e}")
-            print("   Queries will still work using keyword search.")
-            return False
-
-    return True
-
-
-def _is_index_stale(workspace_root: str, indexed_chunks: List[Chunk], max_samples: int = 50) -> bool:
-    """Check if index is stale by sampling files (for performance)."""
-    # Get unique file paths from chunks
-    unique_files = {}
-    for chunk in indexed_chunks:
-        if chunk.path not in unique_files:
-            unique_files[chunk.path] = chunk.modified_time
-
-    # Sample at most max_samples files to check
-    files_to_check = list(unique_files.items())
-    if len(files_to_check) > max_samples:
-        files_to_check = random.sample(files_to_check, max_samples)
-
-    for file_path, indexed_mtime in files_to_check:
-        full_path = os.path.join(workspace_root, file_path)
-        if not os.path.exists(full_path):
-            return True  # File was deleted
-        if os.path.getmtime(full_path) > indexed_mtime:
-            return True  # File was modified
-
-    return False  # Sample looks good; assume index is current
-
-
-def _update_rag_index_incremental(retriever, existing_chunks: List[Chunk]) -> None:
-    """Update only new/modified files."""
-    print("Updating RAG index (files changed)...")
-    retriever.build_index_incremental()

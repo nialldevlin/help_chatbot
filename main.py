@@ -9,7 +9,7 @@ os.environ['AGENT_ENGINE_USE_ANTHROPIC'] = '1'
 os.environ.setdefault("OLLAMA_HOST", "http://127.0.0.1:11434")
 
 from anthropic import Anthropic
-from tools import search_codebase_tool, ensure_rag_index_built, _load_rag_settings
+from tools import search_codebase_tool
 
 MODEL_PROFILES = {
     "haiku": {"backend": "anthropic", "model": "claude-3-5-haiku-20241022"},
@@ -209,20 +209,11 @@ def main():
         choices=list(MODEL_PROFILES.keys()),
         help='Model profile to use (haiku or llama).'
     )
-    parser.add_argument(
-        '--skip-rag',
-        action='store_true',
-        help='Skip RAG indexing for this session'
-    )
 
     args = parser.parse_args()
 
     try:
         initial_model = args.model or DEFAULT_MODEL
-
-        # Build/update RAG index on startup (unless --skip-rag)
-        if not args.skip_rag:
-            ensure_rag_index_built(os.getcwd(), _load_rag_settings(os.getcwd()))
 
         if args.question:
             # Single-shot mode: run the query and exit

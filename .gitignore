@@ -48,9 +48,6 @@ htmlcov/
 .agent_engine/
 .help_chatbot_state.json
 
-# RAG index (workspace-specific, auto-rebuilt)
-.ask_rag_index.json
-
 # Logs
 *.log
 

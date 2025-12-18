@@ -1,6 +1,6 @@
 # /config/workflow.yaml
 version: "1.0"
-description: "Codebase Help Chatbot with Question Classification"
+description: "Codebase Help Chatbot Workflow - Search Only"
 
 nodes:
   - id: "start"
@@ -12,50 +12,11 @@ nodes:
     schema_in: "workflow_schemas:start_input"
     schema_out: "workflow_schemas:start_input"
 
-  - id: "classify_agent"
-    name: "Question Classifier"
-    kind: "agent"
-    role: "decision"
-    agent_id: "classifier"
-    context: "none"
-    schema_in: "workflow_schemas:start_input"
-    schema_out: "workflow_schemas:classification_output"
-
-  - id: "overview_agent"
-    name: "Overview Specialist"
+  - id: "search_codebase_node"
+    name: "Search Codebase"
     kind: "agent"
     role: "linear"
-    agent_id: "overview_specialist"
-    context: "rag_profile"
-    tools: ["search_codebase"]
-    schema_in: "workflow_schemas:start_input"
-    schema_out: "workflow_schemas:search_output"
-
-  - id: "lookup_agent"
-    name: "Lookup Specialist"
-    kind: "agent"
-    role: "linear"
-    agent_id: "lookup_specialist"
-    context: "rag_profile"
-    tools: ["search_codebase"]
-    schema_in: "workflow_schemas:start_input"
-    schema_out: "workflow_schemas:search_output"
-
-  - id: "implementation_agent"
-    name: "Implementation Specialist"
-    kind: "agent"
-    role: "linear"
-    agent_id: "implementation_specialist"
-    context: "rag_profile"
-    tools: ["search_codebase"]
-    schema_in: "workflow_schemas:start_input"
-    schema_out: "workflow_schemas:search_output"
-
-  - id: "configuration_agent"
-    name: "Configuration Specialist"
-    kind: "agent"
-    role: "linear"
-    agent_id: "configuration_specialist"
+    agent_id: "search_agent"
     context: "rag_profile"
     tools: ["search_codebase"]
     schema_in: "workflow_schemas:start_input"
@@ -71,32 +32,7 @@ nodes:
 
 edges:
   - from: "start"
-    to: "classify_agent"
+    to: "search_codebase_node"
 
-  - from: "classify_agent"
-    to: "overview_agent"
-    label: "overview"
-
-  - from: "classify_agent"
-    to: "lookup_agent"
-    label: "lookup"
-
-  - from: "classify_agent"
-    to: "implementation_agent"
-    label: "implementation"
-
-  - from: "classify_agent"
-    to: "configuration_agent"
-    label: "configuration"
-
-  - from: "overview_agent"
-    to: "exit"
-
-  - from: "lookup_agent"
-    to: "exit"
-
-  - from: "implementation_agent"
-    to: "exit"
-
-  - from: "configuration_agent"
+  - from: "search_codebase_node"
     to: "exit"

@@ -40,35 +40,22 @@ class OllamaEmbeddingProvider:
 
     def embed(self, texts: Sequence[str]) -> List[List[float]]:
         vectors: List[List[float]] = []
-        batch_size = 100
-        total = len(texts)
-
-        for batch_start in range(0, total, batch_size):
-            batch = texts[batch_start : batch_start + batch_size]
-            batch_num = batch_start // batch_size + 1
-            batch_total = (total - 1) // batch_size + 1
-
-            # Show progress only for large batches
-            if batch_total > 1:
-                print(f"  Embedding batch {batch_num}/{batch_total}...")
-
-            for text in batch:
-                payload = json.dumps({"model": self.model, "prompt": text}).encode("utf-8")
-                req = urlrequest.Request(
-                    self.base_url,
-                    data=payload,
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                try:
-                    with urlrequest.urlopen(req, timeout=self.timeout) as resp:
-                        data = json.loads(resp.read().decode("utf-8")) if resp else {}
-                except URLError as exc:
-                    raise RuntimeError(f"Ollama embedding request failed: {exc}") from exc
-                vec = _parse_embedding_response(data)
-                if vec is not None:
-                    vectors.append(vec)
-
+        for text in texts:
+            payload = json.dumps({"model": self.model, "prompt": text}).encode("utf-8")
+            req = urlrequest.Request(
+                self.base_url,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with urlrequest.urlopen(req, timeout=self.timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8")) if resp else {}
+            except URLError as exc:
+                raise RuntimeError(f"Ollama embedding request failed: {exc}") from exc
+            vec = _parse_embedding_response(data)
+            if vec is not None:
+                vectors.append(vec)
         return vectors
 
 
@@ -105,20 +92,12 @@ class Chunk:
     text: str
     embedding: List[float]
     score: float = 0.0
-    modified_time: float = 0.0
-
-
-def get_rag_index_path(workspace_root: str) -> str:
-    """Get RAG index path as hidden file in workspace."""
-    return os.path.join(workspace_root, ".ask_rag_index.json")
 
 
 class SimpleVectorStore:
     """JSON-backed vector store at .agent_engine/rag_index.json."""
 
-    def __init__(self, path: str | None = None) -> None:
-        if path is None:
-            path = get_rag_index_path(os.getcwd())
+    def __init__(self, path: str) -> None:
         self.path = path
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
 
@@ -139,7 +118,6 @@ class SimpleVectorStore:
                 "text": c.text,
                 "embedding": c.embedding,
                 "score": c.score,
-                "modified_time": c.modified_time,
             }
             for c in chunks
         ]
@@ -175,7 +153,6 @@ class Retriever:
                     continue
                 path = os.path.join(root, fname)
                 rel = os.path.relpath(path, self.workspace_root)
-                modified_time = os.path.getmtime(path)
                 with open(path, "r", encoding="utf-8", errors="ignore") as f:
                     lines = f.readlines()
                 for i in range(0, len(lines), self.chunk_lines):
@@ -191,77 +168,12 @@ class Retriever:
                             end_line=min(i + self.chunk_lines, len(lines)),
                             text=text,
                             embedding=[],
-                            modified_time=modified_time,
                         )
                     )
 
         embeddings = self.embedder.embed([c.text for c in chunks])
         for chunk, vec in zip(chunks, embeddings):
             chunk.embedding = vec
-
-        self.store.save(chunks)
-        return chunks
-
-    def build_index_incremental(self) -> List[Chunk]:
-        """Build or update index, skipping unchanged files."""
-        chunks: List[Chunk] = []
-        existing_store = self.store.load()
-
-        # Group existing chunks by file path and track mtimes
-        indexed_mtimes: Dict[str, float] = {}
-        for chunk in existing_store:
-            if chunk.path not in indexed_mtimes:
-                indexed_mtimes[chunk.path] = chunk.modified_time
-
-        new_or_modified: List[Chunk] = []
-
-        for root, _, files in os.walk(self.workspace_root):
-            if any(skip in root for skip in [".git", "venv", "__pycache__"]):
-                continue
-
-            for fname in files:
-                if not any(fname.endswith(ext) for ext in self.include_ext):
-                    continue
-
-                path = os.path.join(root, fname)
-                rel = os.path.relpath(path, self.workspace_root)
-                current_mtime = os.path.getmtime(path)
-
-                # Check if file is already indexed and unchanged
-                if rel in indexed_mtimes:
-                    old_mtime = indexed_mtimes[rel]
-                    if current_mtime <= old_mtime:
-                        # Unchanged - reuse ALL existing chunks from this file
-                        chunks.extend([c for c in existing_store if c.path == rel])
-                        continue
-
-                # File is new or modified - re-chunk and mark for re-embedding
-                with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                    lines = f.readlines()
-
-                for i in range(0, len(lines), self.chunk_lines):
-                    chunk_lines = lines[i : i + self.chunk_lines]
-                    text = "".join(chunk_lines)
-                    if not text.strip():
-                        continue
-
-                    new_chunk = Chunk(
-                        id=f"{rel}:{i+1}-{min(i+self.chunk_lines, len(lines))}",
-                        path=rel,
-                        start_line=i + 1,
-                        end_line=min(i + self.chunk_lines, len(lines)),
-                        text=text,
-                        embedding=[],
-                        modified_time=current_mtime,
-                    )
-                    chunks.append(new_chunk)
-                    new_or_modified.append(new_chunk)
-
-        # Only embed new/modified chunks
-        if new_or_modified:
-            embeddings = self.embedder.embed([c.text for c in new_or_modified])
-            for chunk, embedding in zip(new_or_modified, embeddings):
-                chunk.embedding = embedding
 
         self.store.save(chunks)
         return chunks
