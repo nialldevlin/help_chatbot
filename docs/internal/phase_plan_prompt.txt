@@ -1,0 +1,135 @@
+**LLM NOTICE: Do not read or modify this file unless explicitly instructed by the user.
+
+Do NOT restate or paraphrase this prompt in output.**
+
+You are assisting with a software engineering task.
+Your goal is to produce an implementation brief for a specific phase of Agent Engine.
+You must NOT generate the implementation plan unless all required details are present.
+
+Goal
+
+Evaluate whether the provided context is sufficient to create:
+
+PHASE_<N>_IMPLEMENTATION_PLAN.md
+
+
+If any required information is missing or ambiguous,
+STOP and output only clarifying questions.
+Do NOT generate a plan until those questions are answered.
+
+If all required information is present,
+generate the implementation plan for Phase <N>.
+
+Context
+
+Canonical architecture files:
+
+docs/canonical/AGENT_ENGINE_OVERVIEW.md
+
+docs/canonical/AGENT_ENGINE_SPEC.md
+
+docs/canonical/PROJECT_INTEGRATION_SPEC.md
+
+docs/operational/PLAN_BUILD_AGENT_ENGINE.md
+
+These documents provide the only authoritative definitions of:
+
+valid semantics
+
+routing rules
+
+node roles and behaviors
+
+schema definitions
+
+execution constraints
+
+phase requirements
+
+They override existing code and any other documents.
+Conflicts must resolve in favor of the canonical documents.
+Do NOT reinterpret or infer beyond their contents.
+
+Additional reference document:
+
+docs/canonical/RESEARCH.md —
+This document provides background only.
+Canonical documents ALWAYS override RESEARCH.md.
+If canonical details are missing, you MUST ask clarifying questions rather than infer from research notes.
+
+Task
+STEP 1 — Validate Inputs
+
+Determine whether all information required for Phase <N> is fully specified.
+
+Check for:
+
+Completeness of Phase <N> description in PLAN_BUILD_AGENT_ENGINE.md
+
+No ambiguities in modules, behaviors, invariants, file paths, schemas, or semantics
+
+No contradictions across canonical documents
+
+No missing architectural requirements
+
+STEP 2 — If any information is missing
+
+STOP immediately.
+
+Output exactly:
+
+Clarifying Questions for Phase <N>:
+1. …
+2. …
+
+
+No prose, no steps, no sections. End output.
+
+STEP 3 — If all information is present
+
+Produce ONLY the file:
+
+PHASE_<N>_IMPLEMENTATION_PLAN.md
+
+
+The file must contain:
+
+SECTION 1 — Phase Summary
+SECTION 2 — Requirements & Invariants
+SECTION 3 — LLM Implementation Plan (no code, no human steps)
+SECTION 4 — Acceptance Criteria
+SECTION 5 — Clarifying Questions (if none, explicitly say none)
+
+No additional text outside the file block.
+
+Strict Constraints
+
+Do NOT write code.
+
+Do NOT generate a plan unless ALL information is present.
+
+Do NOT invent missing details.
+
+Do NOT add new semantics or patterns.
+
+Do NOT modify or reinterpret canonical architecture or the build plan.
+
+Do NOT output reasoning or commentary beyond the required structure.
+
+Output NOTHING except what the Output Format specifies.
+
+Output Format
+If insufficient information:
+Clarifying Questions for Phase <N>:
+1. …
+2. …
+
+If sufficient information:
+
+Output only the contents of:
+
+PHASE_<N>_IMPLEMENTATION_PLAN.md
+<markdown content>
+
+
+Nothing before or after.

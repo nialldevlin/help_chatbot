@@ -1,0 +1,39 @@
+# /config/agents.yaml
+version: "1.0"
+agents:
+  # Search agent: Executes search with tools
+  - id: "search_agent"
+    kind: "agent"
+    llm: "anthropic/claude-3-5-haiku"
+    config:
+      temperature: 0.0
+      max_tokens: 150
+    prompt: |
+      {{user_input}}
+
+      {"tool_plan":{"steps":[{"tool_id":"search_codebase","inputs":{"query":"README"},"reason":"search"}]}}
+
+  # Synthesis agent: Reads tool results from context and generates natural language answer
+  - id: "synthesis_agent"
+    kind: "agent"
+    llm: "anthropic/claude-3-5-haiku"
+    config:
+      temperature: 0.4
+      max_tokens: 2000
+    prompt: |
+      User asked: {{user_input}}
+
+      You will receive search results containing file listings and README content. Look in the "tool_calls" array - each element has an "output" field with the search results.
+
+      Extract information from the tool_calls and provide a natural language answer.
+
+      For "what is this codebase" questions:
+      - Read the README content from the tool output
+      - Start your answer with "This workspace contains..." or "This is..."
+      - Explain the main purpose
+      - Mention 2-3 key features
+      - Reference key technologies
+
+      Output your answer as JSON: {"final_answer": "your natural language summary here"}
+
+default_agent: "synthesis_agent"

@@ -1,0 +1,38 @@
+# /config/workflow.yaml
+version: "1.0"
+description: "Codebase Help Chatbot Workflow - Search Only"
+
+nodes:
+  - id: "start"
+    name: "Start"
+    kind: "deterministic"
+    role: "start"
+    default_start: true
+    context: "none"
+    schema_in: "workflow_schemas:start_input"
+    schema_out: "workflow_schemas:start_input"
+
+  - id: "search_codebase_node"
+    name: "Search Codebase"
+    kind: "agent"
+    role: "linear"
+    agent_id: "search_agent"
+    context: "rag_profile"
+    tools: ["search_codebase"]
+    schema_in: "workflow_schemas:start_input"
+    schema_out: "workflow_schemas:search_output"
+
+  - id: "exit"
+    name: "Exit"
+    kind: "deterministic"
+    role: "exit"
+    context: "none"
+    schema_in: "workflow_schemas:search_output"
+    schema_out: "workflow_schemas:search_output"
+
+edges:
+  - from: "start"
+    to: "search_codebase_node"
+
+  - from: "search_codebase_node"
+    to: "exit"

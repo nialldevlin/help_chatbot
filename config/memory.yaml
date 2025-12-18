@@ -1,0 +1,36 @@
+# /config/memory.yaml
+version: "1.0"
+
+memory:
+  # The engine requires all three stores to be defined under the 'memory' key.
+  task_store:
+    type: "in_memory"
+    max_size: 100
+
+  project_store:
+    type: "in_memory"
+    max_size: 100
+
+  global_store:
+    type: "in_memory"
+    max_size: 100
+
+  # Define context profiles that nodes can use.
+  context_profiles:
+    - id: "rag_profile"
+      max_tokens: 4000
+      retrieval_policy: "semantic"
+      metadata:
+        rag_enabled: true
+        rag_top_k: 6
+      sources:
+        - store: "task"
+        - store: "project"
+        - store: "global"
+    - id: "default"
+      max_tokens: 4000
+      retrieval_policy: "recency"
+      sources:
+        - store: "task"
+        - store: "project"
+        - store: "global"

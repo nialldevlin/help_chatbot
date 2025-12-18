@@ -1,0 +1,34 @@
+# /config/cli_profiles.yaml
+# Defines the profiles for the command-line REPL.
+
+# The 'id' of a profile can be used with the /mode command.
+# e.g., /mode haiku
+
+profiles:
+  - id: haiku
+    label: "Claude Haiku (Default)"
+    description: "Fast cloud model from Anthropic"
+    is_default: true
+    input_mappings:
+      default:
+        user_input: "{{user_text}}"
+        dynamic_params:
+          llm: "anthropic/claude-3-5-haiku"
+
+  - id: sonnet
+    label: "Claude Sonnet"
+    description: "Balanced cloud model from Anthropic"
+    input_mappings:
+      default:
+        user_input: "{{user_text}}"
+        dynamic_params:
+          llm: "anthropic/claude-3-5-sonnet"
+
+  - id: gpt-mini
+    label: "GPT-4o Mini"
+    description: "Fast cloud model from OpenAI (requires OpenAI API key)"
+    input_mappings:
+      default:
+        user_input: "{{user_text}}"
+        dynamic_params:
+          llm: "openai/gpt-4o-mini"

@@ -1,0 +1,30 @@
+# /config/tools.yaml
+tools:
+  - id: "search_codebase"
+    type: "python_function"
+    entrypoint: "tools:search_codebase_tool"
+    permissions:
+      allow_network: false
+      allow_shell: false
+      root: false
+    description: "Searches the codebase for relevant files and snippets."
+    schema:
+      properties:
+        query: { type: string }
+        focus_areas: { type: array, items: { type: string } }
+      required: [query]
+
+  - id: "format_response"
+    type: "python_function"
+    entrypoint: "tools:format_response_tool"
+    permissions:
+      allow_network: false
+      allow_shell: false
+      root: false
+    description: "Formats the final answer for the user."
+    schema:
+      properties:
+        original_question: { type: string }
+        analysis: { type: string }
+        code_snippets: { type: string }
+      required: [original_question, analysis, code_snippets]

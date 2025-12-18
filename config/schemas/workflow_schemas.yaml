@@ -1,0 +1,53 @@
+# /config/schemas/workflow_schemas.yaml
+
+# Schema for the initial input to the workflow
+start_input:
+  type: object
+  properties:
+    user_input: { type: string }
+  required: [user_input]
+
+# Schema for classification decision output
+classification_output:
+  type: object
+  properties:
+    condition: { type: string }
+    action: { type: string }
+  required: [condition, action]
+
+# Schema for search results
+search_output:
+  type: object
+
+# Schema for the output of the 'analyze_question' node
+analyze_question_output:
+  type: object
+  properties:
+    search_query: { type: string }
+    focus_areas: { type: array, items: { type: string } }
+    analysis: { type: string }
+  required: ["search_query", "analysis"]
+
+# Schema for the output of the 'execute_search' node
+# This node also propagates the original question and analysis
+execute_search_output:
+  type: object
+  properties:
+    search_results: { type: string }
+    original_question: { type: string }
+    analysis_from_prev: { type: string }
+  required: [search_results, original_question, analysis_from_prev]
+
+# Schema for the output of the 'generate_response' node
+generate_response_output:
+  type: object
+  properties:
+    final_answer: { type: string }
+  required: [final_answer]
+
+# Schema for the final output of the 'exit' node
+final_output:
+  type: object
+  properties:
+    final_answer: { type: string }
+  required: [final_answer]
