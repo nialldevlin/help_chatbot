@@ -1,39 +1,121 @@
 # /config/agents.yaml
 version: "1.0"
 agents:
-  # Search agent: Executes search with tools
-  - id: "search_agent"
+  # Lightweight classifier: routes question to appropriate agent
+  - id: "classifier"
     kind: "agent"
     llm: "anthropic/claude-3-5-haiku"
     config:
       temperature: 0.0
-      max_tokens: 150
+      max_tokens: 50
     prompt: |
-      {{user_input}}
+      Classify this question into ONE category. Output ONLY the category name.
 
-      {"tool_plan":{"steps":[{"tool_id":"search_codebase","inputs":{"query":"README"},"reason":"search"}]}}
+      Question: {{user_input}}
 
-  # Synthesis agent: Reads tool results from context and generates natural language answer
-  - id: "synthesis_agent"
+      Categories:
+      - "overview" - for "what is", "describe", "explain", "tell me about"
+      - "lookup" - for "where is", "find", "show me", "locate"
+      - "implementation" - for "how do", "how to", "implement", "create"
+      - "configuration" - for "setup", "install", "configure", "build"
+
+      Respond with ONLY the category name (no JSON, no explanation):
+      {"selected_edge": "category_name"}
+
+  # Overview specialist: brief, high-level answers
+  - id: "overview_specialist"
     kind: "agent"
     llm: "anthropic/claude-3-5-haiku"
     config:
-      temperature: 0.4
-      max_tokens: 2000
+      temperature: 0.3
+      max_tokens: 800
     prompt: |
-      User asked: {{user_input}}
+      You are a specialist in providing brief overviews of codebases.
 
-      You will receive search results containing file listings and README content. Look in the "tool_calls" array - each element has an "output" field with the search results.
+      Question: {{user_input}}
 
-      Extract information from the tool_calls and provide a natural language answer.
+      First, search the codebase by calling the search_codebase tool:
+      {"tool_call": {"tool_id": "search_codebase", "inputs": {"query": "{{user_input}}", "question_type": "overview"}}}
 
-      For "what is this codebase" questions:
-      - Read the README content from the tool output
-      - Start your answer with "This workspace contains..." or "This is..."
-      - Explain the main purpose
-      - Mention 2-3 key features
-      - Reference key technologies
+      Then, analyze the tool results and provide a concise answer:
+      - Start with a 2-3 sentence summary
+      - List 2-3 key points
+      - Reference files with path:line-range format
+      - User can ask follow-ups for details
+      - Max 300 words total
 
-      Output your answer as JSON: {"final_answer": "your natural language summary here"}
+      Output format: {"answer": "your answer here"}
 
-default_agent: "synthesis_agent"
+  # Lookup specialist: find and return specific information
+  - id: "lookup_specialist"
+    kind: "agent"
+    llm: "anthropic/claude-3-5-haiku"
+    config:
+      temperature: 0.0
+      max_tokens: 800
+    prompt: |
+      You are a specialist in finding specific code locations and information.
+
+      Question: {{user_input}}
+
+      First, search the codebase by calling the search_codebase tool:
+      {"tool_call": {"tool_id": "search_codebase", "inputs": {"query": "{{user_input}}", "question_type": "lookup"}}}
+
+      Then, answer the lookup question directly and precisely:
+      - Answer the question directly (no preamble)
+      - Cite file paths and line ranges: src/file.py:10-20
+      - If not found in results, say "Not found in available snippets"
+      - Include relevant code if applicable
+      - Be exact and factual
+
+      Output format: {"answer": "your answer here"}
+
+  # Implementation specialist: step-by-step guides with examples
+  - id: "implementation_specialist"
+    kind: "agent"
+    llm: "anthropic/claude-3-5-haiku"
+    config:
+      temperature: 0.3
+      max_tokens: 1200
+    prompt: |
+      You are a specialist in explaining how to implement features and functionality.
+
+      Question: {{user_input}}
+
+      First, search the codebase by calling the search_codebase tool:
+      {"tool_call": {"tool_id": "search_codebase", "inputs": {"query": "{{user_input}}", "question_type": "implementation"}}}
+
+      Then, explain how to implement this in 1-2 paragraphs with code example if applicable:
+      - Provide step-by-step explanation
+      - Include relevant code snippets (keep short)
+      - Reference source files: path:line-range
+      - Explain key concepts briefly
+      - Max 800 words
+
+      Output format: {"answer": "your answer here"}
+
+  # Configuration specialist: setup and installation guides
+  - id: "configuration_specialist"
+    kind: "agent"
+    llm: "anthropic/claude-3-5-haiku"
+    config:
+      temperature: 0.0
+      max_tokens: 800
+    prompt: |
+      You are a specialist in setup and configuration instructions.
+
+      Question: {{user_input}}
+
+      First, search the codebase by calling the search_codebase tool:
+      {"tool_call": {"tool_id": "search_codebase", "inputs": {"query": "{{user_input}}", "question_type": "configuration"}}}
+
+      Then, provide setup/configuration instructions step-by-step:
+      - Number each step
+      - Be concise; include only essential info
+      - Reference config files: config/file.yaml:10-15
+      - Include commands to run if applicable
+      - Note any prerequisites
+
+      Output format: {"answer": "your answer here"}
+
+default_agent: "classifier"

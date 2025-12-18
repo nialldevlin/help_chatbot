@@ -10,8 +10,18 @@ tools:
     description: "Searches the codebase for relevant files and snippets."
     schema:
       properties:
-        query: { type: string }
-        focus_areas: { type: array, items: { type: string } }
+        query:
+          type: string
+          description: "The search query"
+        focus_areas:
+          type: array
+          items:
+            type: string
+          description: "Specific directories or areas to focus the search on"
+        question_type:
+          type: string
+          enum: ["overview", "lookup", "implementation", "configuration"]
+          description: "Type of question being asked, affects search behavior"
       required: [query]
 
   - id: "format_response"
